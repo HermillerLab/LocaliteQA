@@ -48,6 +48,27 @@ prompt = 'Enter name for result folder: ';
 user_folder_name = input(prompt, 's');
 
 
+% Initialize variables
+N = [];
+T = [];
+
+% User input for entry and instrument deviation (N)
+while isempty(N) || N < 0
+    N = input('Enter the “off-target” threshold (distance in mm) for each pulse location relative to the Entry and Instrument Marker (e.g., 3): ');
+    if isempty(N) || N < 0
+        disp('Please enter a positive number or 0 and do not include "mm".')
+    end
+end
+
+% User input for stimulated site deviation (T)
+while isempty(T) || T < 0
+    T = input('Enter the “off-target” threshold (distance in mm) for each pulse location relative to the estimated actual stimulation site (e.g., 1): ');
+    if isempty(T) || T < 0
+        disp('Please enter a positive number or 0 and do not include "mm".')
+    end
+end
+
+
 try 
     t = datetime('now'); 
     tmstmp = sprintf('%4g%02g%02g', t.Year, t.Month, t.Day); 
@@ -101,7 +122,7 @@ soi = session_indices;
 [RMSdev] = read_RMSdev(dir_subj, dir_QA, info, soi, tmstmp);
 
 % Calculate deviations
-[calcdev] = calc_dev(dir_subj, dir_QA, subj, info, soi, triggers, entry, instrmt, target, RMSdev, tmstmp, folder_name);
+[calcdev] = calc_dev(dir_subj, dir_QA, subj, info, soi, triggers, entry, instrmt, target, RMSdev, tmstmp, folder_name, N, T);
 
 % Display citation information again
 fprintf('PLEASE USE THE FOLLOWING CITATION WHEN REFERENCING OR UTILIZING THIS TOOLBOX\n')

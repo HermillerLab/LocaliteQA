@@ -1,24 +1,5 @@
-function calcdev = calc_dev(dir_subj, dir_QA, subj, info, soi, triggers, entry, instrmt, target, RMSdev, tmstmp, folder_name)
+function calcdev = calc_dev(dir_subj, dir_QA, subj, info, soi, triggers, entry, instrmt, target, RMSdev, tmstmp, folder_name,N,T)
 
-% Initialize variables
-N = [];
-T = [];
-
-% User input for entry and instrument deviation (N)
-while isempty(N) || N < 0
-    N = input('Enter the “off-target” threshold (distance in mm) for each pulse location relative to the Entry and Instrument Marker (e.g., 3): ');
-    if isempty(N) || N < 0
-        disp('Please enter a positive number or 0 and do not include "mm".')
-    end
-end
-
-% User input for stimulated site deviation (T)
-while isempty(T) || T < 0
-    T = input('Enter the “off-target” threshold (distance in mm) for each pulse location relative to the estimated actual stimulation site (e.g., 1): ');
-    if isempty(T) || T < 0
-        disp('Please enter a positive number or 0 and do not include "mm".')
-    end
-end
 
 % Extract session names and trigger/instrument fields
 sessions = info(:,1);
@@ -81,6 +62,7 @@ for t = 1:length(trigger_fields)
         ins(t, :) = instrmt.(sprintf('%s', sessions{soi(s)}));
         ent(t, :) = entry.(sprintf('%s', sessions{soi(s)}));
         tar(t, :) = target.(sprintf('%s', sessions{soi(s)}));
+        ent2tar(t,:) = tar(t,:)-ent(t,:);
 
         % Convert 4D trigger matrix to 3D vector
         for i = 1:numel(trg{t}(:, 1))
@@ -91,53 +73,104 @@ for t = 1:length(trigger_fields)
         end
 
         % Convert 4D instrument matrix to 3D vector
+        % Get position info for instrument marker
         imk(t, 1) = ins(t, 4); 
         imk(t, 2) = ins(t, 8); 
         imk(t, 3) = ins(t, 12); 
         imk(t, 4) = ins(t, 16);
 
-        % Calculate deviations and variance 
+        % Get rotational info for instrument marker
+        ins_rot{t}(1,1)=ins(t, 1);
+        ins_rot{t}(1,2)=ins(t, 2);
+        ins_rot{t}(1,3)=ins(t, 3);
+        ins_rot{t}(1,4)=ins(t, 4);
+        ins_rot{t}(2,1)=ins(t, 5);
+        ins_rot{t}(2,2)=ins(t, 6);
+        ins_rot{t}(2,3)=ins(t, 7);
+        ins_rot{t}(2,4)=ins(t, 8);
+        ins_rot{t}(3,1)=ins(t, 9);
+        ins_rot{t}(3,2)=ins(t, 10);
+        ins_rot{t}(3,3)=ins(t, 11);
+        ins_rot{t}(3,4)=ins(t, 12);
+        ins_rot{t}(4,1)=ins(t, 13);
+        ins_rot{t}(4,2)=ins(t, 14);
+        ins_rot{t}(4,3)=ins(t, 15);
+        ins_rot{t}(4,4)=ins(t, 16);
 
-        % Distance between instrument and entry
+        % Calculate deviations and variance (Euclidean distance; position changes only
+
+        % Euclidean Distance between instrument and entry
         imk2ent(t, :) = sqrt((imk(t, 1) - ent(t, 1))^2 + (imk(t, 2) - ent(t,2))^2 + (imk(t,3) - ent(t,3))^2);
   
-        % Distance between instrument and target
+        % Euclidean Distance between instrument and target
         imk2tar(t, :) = sqrt((imk(t, 1) - tar(t, 1))^2 + (imk(t, 2) - tar(t,2))^2 + (imk(t,3) - tar(t,3))^2);
         
-        % Distance between target and entry
+        % Euclidean Distance between target and entry
         tar2ent(t, :) = sqrt((tar(t, 1) - ent(t, 1))^2 + (tar(t, 2) - ent(t,2))^2 + (tar(t,3) - ent(t,3))^2);
         
-        % Distance between pulses and entry, instrument, and  target
+        
         for p = 1:length(pls{t}(:, 1))
+            % Euclidean Distance between pulses and entry, instrument, and  target
             pls2ent(t, p) = sqrt(((pls{t}(p, 1) - ent(t, 1))^2) + ((pls{t}(p, 2) - ent(t, 2))^2) + ((pls{t}(p, 3) - ent(t, 3))^2));
             pls2imk(t, p) = sqrt((pls{t}(p, 1) - imk(t, 1))^2 + (pls{t}(p, 2) - imk(t, 2))^2 + (pls{t}(p, 3) - imk(t, 3))^2);           
             pls2tar(t, p) = sqrt((pls{t}(p, 1) - tar(t, 1))^2 + (pls{t}(p, 2) - tar(t, 2))^2 + (pls{t}(p, 3) - tar(t, 3))^2);
+
+            % Get rotational info for each trigger
+            trg_rot{t}{p}(1,1)=trg{t}(p, 1);
+            trg_rot{t}{p}(1,2)=trg{t}(p, 2);
+            trg_rot{t}{p}(1,3)=trg{t}(p, 3);
+            trg_rot{t}{p}(1,4)=trg{t}(p, 4);
+            trg_rot{t}{p}(2,1)=trg{t}(p, 5);
+            trg_rot{t}{p}(2,2)=trg{t}(p, 6);
+            trg_rot{t}{p}(2,3)=trg{t}(p, 7);
+            trg_rot{t}{p}(2,4)=trg{t}(p, 8);
+            trg_rot{t}{p}(3,1)=trg{t}(p, 9);
+            trg_rot{t}{p}(3,2)=trg{t}(p, 10);
+            trg_rot{t}{p}(3,3)=trg{t}(p, 11);
+            trg_rot{t}{p}(3,4)=trg{t}(p, 12);
+            trg_rot{t}{p}(4,1)=0;
+            trg_rot{t}{p}(4,2)=0;
+            trg_rot{t}{p}(4,3)=0;
+            trg_rot{t}{p}(4,4)=trg{t}(p, 16);
+            
+            % Use the Procrustes transformation returned by procrustes to analyze how it superimposes the triggers onto the instrument marker
+            [d,z,transform]=procrustes(ins_rot{t},trg_rot{t}{p},"scaling",false,"reflection",false);
+            procrustes_trg2ins{t}(p,1)=d; %dispartity between two matrices
+            
+            % Calculate the Euler angles from the rotation matrix
+            R = transform.T;
+            
+            % Check for gimbal lock (is sy close to zero?); if so, then ignore yaw
+            sy = sqrt(R(1,1) * R(1,1) +  R(2,1) * R(2,1));
+            singular = sy < 1e-6;
+            
+            if ~singular
+                pitch{t}(p) = atan2d(R(3,2), R(3,3)); % tilting the handle forward/backward
+                roll{t}(p) = atan2d(-R(3,1), sy); % rotating the coil around the tail (circling around the hotspot; aligning the "T" of the instrument marker)
+                yaw{t}(p) = atan2d(R(2,1), R(1,1)); % side-to-side (butterfly arms flapping; see-saw)
+            else
+                pitch{t}(p) = atan2d(-R(2,3), R(2,2));
+                roll{t}(p) = atan2d(-R(3,1), sy);
+                yaw{t}(p) = 0;
+            end
             
             % Calculate "target" of each pulse
-            tar_each_pls{t}(p, 1)= trg{t}(p, 1) * pls2tar(t, p) + pls{t}(p, 1);
-            tar_each_pls{t}(p, 2)= trg{t}(p, 5) * pls2tar(t, p) + pls{t}(p, 2);
-            tar_each_pls{t}(p, 3)= trg{t}(p, 9) * pls2tar(t, p) + pls{t}(p, 3);
-            % Distance each "target" is away from set target
+            tar_each_pls{t}(p, 1)= trg_rot{t}{p}(1, 4) + pls2tar(t, p) * trg_rot{t}{p}(1, 1);
+            tar_each_pls{t}(p, 2)= trg_rot{t}{p}(2, 4) + pls2tar(t, p) * trg_rot{t}{p}(2, 1);
+            tar_each_pls{t}(p, 3)= trg_rot{t}{p}(3, 4) + pls2tar(t, p) * trg_rot{t}{p}(3, 1);
+            
+            % Distance each "target" is away from intended target
             dist_pls_tar_off_tar(t, p)= sqrt(((tar_each_pls{t}(p, 1) - tar(t, 1))^2) + ((tar_each_pls{t}(p, 2) - tar(t, 2))^2) + ((tar_each_pls{t}(p, 3) - tar(t, 3))^2));
                        
         end
 
-        ave_pls_tar(t, 1) = mean(tar_each_pls{t}(:, 1));
-        ave_pls_tar(t, 2) = mean(tar_each_pls{t}(:, 2));
-        ave_pls_tar(t, 3) = mean(tar_each_pls{t}(:, 3));
-        
-        
-        % Count pulses N+ off entry and instrument 
-        pls2ent_OFF = (pls2ent(t, :) >= N);
-        pls2ent_ctOFF(t, 1) = sum(pls2ent_OFF);
-      
-        pls2imk_OFF = (pls2imk(t,:) >= N);
-        pls2imk_ctOFF(t, 1) = sum(pls2imk_OFF);
-        
-        dist_pls_tar_off_tar_OFF = (dist_pls_tar_off_tar(t,:) >= T);
-        dist_pls_tar_off_tar_ctOFF(t, 1) = sum(dist_pls_tar_off_tar_OFF);
-        
-        
+        ave_pls_tar(t, :) = mean(tar_each_pls{t});
+
+        % Count pulses N+ off entry and instrument and T+ off target
+        pls2ent_OFF = (pls2ent(t, :) >= N); pls2ent_ctOFF(t, 1) = sum(pls2ent_OFF);
+        pls2imk_OFF = (pls2imk(t,:) >= N); pls2imk_ctOFF(t, 1) = sum(pls2imk_OFF);
+        dist_pls_tar_off_tar_OFF = (dist_pls_tar_off_tar(t,:) >= T); dist_pls_tar_off_tar_ctOFF(t, 1) = sum(dist_pls_tar_off_tar_OFF);     
+    
         % Summary of pulses from entry, instrument, and target
         ave_pls2ent(t, 1) = mean(pls2ent(t, 1:length(pls{t}(:, 1))));
         std_pls2ent(t, 1) = std(pls2ent(t, 1:length(pls{t}(:, 1))));
@@ -151,15 +184,45 @@ for t = 1:length(trigger_fields)
         ave_dist_pls_tar_off_tar(t, 1) = mean(dist_pls_tar_off_tar(t, 1:length(pls{t}(:, 1))));
         std_dist_pls_tar_off_tar(t, 1) = std(dist_pls_tar_off_tar(t, 1:length(pls{t}(:, 1))));
         var_dist_pls_tar_off_tar(t, 1) = var(dist_pls_tar_off_tar(t, 1:length(pls{t}(:, 1))));
-      
-        % Trigger and pulse variance
-
+        ave_procrustes_trg2ins(t,1) = mean(procrustes_trg2ins{t}(:,1));
+        std_procrustes_trg2ins(t,1) = std(procrustes_trg2ins{t}(:,1));
+        var_procrustes_trg2ins(t,1) = var(procrustes_trg2ins{t}(:,1));
+        ave_pitch(t,1) = mean(pitch{t}(:));
+        std_pitch(t,1) = std(pitch{t}(:));
+        var_pitch(t,1) = var(pitch{t}(:));
+        ave_roll(t,1) = mean(roll{t}(:));
+        std_roll(t,1) = std(roll{t}(:));
+        var_roll(t,1) = var(roll{t}(:));
+        ave_yaw(t,1) = mean(yaw{t}(:));
+        std_yaw(t,1) = std(yaw{t}(:));
+        var_yaw(t,1) = var(yaw{t}(:));
+        
         % Displacement from previous
         for u = 1:p-1 
             trg2prevtrg{t}(u, :) = (trg{t}((u+1), :)) - (trg{t}(u, :));
             pls2prevpls(t, u) = sqrt((pls{t}(u+1, 1) - pls{t}(u, 1))^2 + (pls{t}(u+1, 2) - pls{t}(u, 2))^2 + (pls{t}(u+1, 3) - pls{t}(u, 3))^2);
+
+            [d,z,transform]=procrustes(trg_rot{t}{u+1},trg_rot{t}{u},"scaling",false,"reflection",false);
+            procrustes_trgvar{t}(u,1)=d; % dispartity between two matrice
+            
+            % Calculate the Euler angles from the rotation matrix
+            R = transform.T;
+            
+            % Check for gimbal lock (is sy close to zero?); if so, then ignore yaw
+            sy = sqrt(R(1,1) * R(1,1) +  R(2,1) * R(2,1));
+            singular = sy < 1e-6;
+            
+            if ~singular
+                pitch_trgvar(t,u) = atan2d(R(3,2), R(3,3)); % tilting the handle forward/backward
+                roll_trgvar(t,u) = atan2d(-R(3,1), sy); % rotating the coil around the tail (circling around the hotspot; aligning the "T" of the instrument marker)
+                yaw_trgvar(t,u) = atan2d(R(2,1), R(1,1)); % side-to-side (butterfly arms flapping; see-saw)
+            else
+                pitch_trgvar(t,u) = atan2d(-R(2,3), R(2,2));
+                roll_trgvar(t,u) = atan2d(-R(3,1), sy);
+                yaw_trgvar(t,u) = 0;
+            end
         end
-        % Variance
+         
         var_trg(t, :) = var(trg{t}); 
         var_pls(t, :) = var(pls{t}); 
         var_pls_dist0(t, 1) = sqrt(var_pls(t, 1)^2 + var_pls(t, 2)^2 + var_pls(t, 3)^2);
@@ -168,6 +231,7 @@ for t = 1:length(trigger_fields)
         calcdev.ave_trg2prevtrg(t, :) = mean(trg2prevtrg{t});
         calcdev.var_pls2prevpls(t, :) = var(pls2prevpls(t, :));
     end
+
 end
 
 % Display and save data 
@@ -175,6 +239,9 @@ pe_asv_4disp = [ave_pls2ent std_pls2ent var_pls2ent];
 pi_asv_4disp = [ave_pls2imk std_pls2imk var_pls2imk];
 pt_asv_4disp = [ave_pls2tar std_pls2tar var_pls2tar];
 tpt_asv_4disp = [ave_dist_pls_tar_off_tar std_dist_pls_tar_off_tar var_dist_pls_tar_off_tar];
+pi_pitch_asv_4disp = [ave_pitch std_pitch var_pitch];
+pi_roll_asv_4disp = [ave_roll std_roll var_roll];
+pi_yaw_asv_4disp = [ave_yaw std_yaw var_yaw];
 
 % Display trigger devations and variance 
 disp('===========================================================================');
@@ -191,17 +258,23 @@ disp('DEVIATION BETWEEN TRIGGERED PULSES & INSTRUMENT:');
 disp('     ave        std        var'); 
 disp(pi_asv_4disp); 
 disp('===========================================================================');
-disp('DISTANCE BETWEEN INSTRUMENT & PREDETERMINED TARGET:'); 
-disp(imk2tar);
-disp('===========================================================================');
-disp('DEVIATION BETWEEN TRIGGERED PULSES & PREDETERMINED TARGET:'); 
+%disp('DISTANCE BETWEEN INSTRUMENT & PREDETERMINED (INTENDED) TARGET:'); 
+%disp(imk2tar);
+%disp('===========================================================================');
+disp('POSITIONAL DEVIATION BETWEEN TRIGGERED PULSES & INSTRUMENT MARKER:'); 
 disp('     ave        std        var'); 
-disp(pt_asv_4disp);
+disp(pi_asv_4disp);
 disp('===========================================================================');
-disp('AVERAGE COORDINATES OF ACTUAL STIMULATED SITE:'); 
+disp('ROTATIONAL DEVIATION (degrees) BETWEEN TRIGGERED PULSES & INSTRUMENT MARKER:');
+disp('     ave        std        var'); 
+disp(['   ',num2str(pi_pitch_asv_4disp),'       Pitch: tilting the handle forward/backward']);
+disp(['  ',num2str(pi_roll_asv_4disp),'       Roll: rotating around the hotspot']);
+disp(['  ',num2str(pi_yaw_asv_4disp),'       Yaw: tilting the wings side-to-side']);
+disp('AVERAGE COORDINATES OF ESTIMATED STIMULATED SITE (BASED ON PULSE LOCATIONS):'); 
+disp('       X        Y        Z'); 
 disp(ave_pls_tar);
 disp('===========================================================================');
-disp('DEVIATION BETWEEN PREDETERMINED TARGET AND THE ACTUAL STIMULATED SITE:');
+disp('DEVIATION BETWEEN PREDETERMINED (INTENDED) TARGET AND THE ESTIMATED STIMULATED SITE:');
 disp('     ave        std        var'); 
 disp(tpt_asv_4disp);
 
@@ -211,7 +284,7 @@ names = strrep(names, 'dayMT10', 'SHAM');
 
 
 % Plotting section for distance between pulses and entry/instrument
-figure('Name', [folder_name, ' - Distance between Pulses and Entry/Instrument'], 'NumberTitle', 'off');
+figure('Color',[1,1,1],'Name', [folder_name, ' - Distance between Pulses and Entry/Instrument'], 'NumberTitle', 'off');
 for t = 1:length(to_graph)
     subplot(length(to_graph), 1, t);
     points = 1:numel(pls2ent(to_graph(t), :));
@@ -234,9 +307,8 @@ savefig(fullfile(sprintf('%s/QAfig_EI', dir_QA)));
 saveas(gcf, fullfile(dir_QA, sprintf('QAfig_EI_%s.png', folder_name)));
 
 
-
 % Plotting section for distance between target and actual stimulated site
-figure('Name', [folder_name, ' - Distance between Target and Actual Stimulated Site'], 'NumberTitle', 'off');
+figure('Color',[1,1,1],'Name', [folder_name, ' - Distance between Target and Actual Stimulated Site'], 'NumberTitle', 'off');
 for t = 1:length(to_graph)
     subplot(length(to_graph), 1, t);
     points = 1:numel(dist_pls_tar_off_tar(to_graph(t),:));
@@ -252,11 +324,35 @@ for t = 1:length(to_graph)
     ylabel('distance (mm)'); 
     xlabel(sprintf('pulse count: %s', num2str(numel(trg{to_graph(t)}(:, 1)))));
     xlim([0, numel(trg{to_graph(t)}(:, 1)) + 1]); 
-
-    % Saving the second figure
-    savefig(fullfile(sprintf('%s/QAfig_STIMSITE', dir_QA)));
-    saveas(gcf, fullfile(dir_QA, sprintf('QAfig_STIMSITE_%s.png', folder_name)));
-
 end
+
+% Saving the second figure
+savefig(fullfile(sprintf('%s/QAfig_STIMSITE', dir_QA)));
+saveas(gcf, fullfile(dir_QA, sprintf('QAfig_STIMSITE_%s.png', folder_name)));
+
+% Plotting rotational deviations for each pulse relative to instrument
+figure('Color',[1,1,1],'Name', [folder_name, ' - Rotational Deviation between Pulses and Entry/Instrument'], 'NumberTitle', 'off');
+for t = 1:length(to_graph)
+    subplot(length(to_graph), 1, t);
+    points = 1:numel(procrustes_trg2ins{t});
+    set(gca, 'YGrid', 'on', 'GridLineStyle' ,'-');
+   % h = plot(points, procrustes_trg2ins{to_graph(t)}(:), 'black'); hold on;
+    h = plot(points, pitch{to_graph(t)}(:),'m'); hold on;
+    h = plot(points, roll{to_graph(t)}(:),'g'); hold on;
+    h = plot(points, yaw{to_graph(t)}(:),'b'); hold on;
+    yline(0, 'k--', 'LineWidth', 1.5);
+   
+    title(names{to_graph(t)}); hold on;
+    lh = legend({'Pitch (tilt forward/backward)','Roll (rotate around hotspot)','Yaw (tilt side-to-side)'});
+    set(lh, 'Location', 'eastoutside', 'Orientation', 'vertical');
+    ylabel('deviation (degrees)'); 
+    xlabel(sprintf('pulse count: %s', num2str(numel(trg{to_graph(t)}(:, 1)))));
+    xlim([0, numel(trg{to_graph(t)}(:, 1)) + 1]); 
+end
+
+% Saving the second figure
+savefig(fullfile(sprintf('%s/QAfig_ROTATION', dir_QA)));
+saveas(gcf, fullfile(dir_QA, sprintf('QAfig_ROTATION_%s.png', folder_name)));
+
 
 
